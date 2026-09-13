@@ -1,5 +1,7 @@
 # China Miner — The Jade Mines
 
+**[Play in your browser](https://andredp-developer.github.io/china-miner/)** — no installation required.
+
 A Three.js fan remake of **China Miner**, programmed and designed by **Ian Gray**, published by **Interceptor Software in 1984** for the Commodore 64.
 
 All thirty original rooms return with layered cavern scenery, a ruined temple, illuminated lanterns, drifting dust, waterfalls, jade crystals, a modelled miner, and bevelled voxel creatures. The original game’s movement routines, room data, enemy paths, pickups and hazards drive the new presentation.
