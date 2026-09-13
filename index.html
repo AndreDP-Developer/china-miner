@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101e21" />
+    <meta
+      name="description"
+      content="A Three.js tribute to Ian Gray's China Miner (1984). Thirty original caverns, reimagined in jade and lantern light."
+    />
+    <title>China Miner — The Jade Mines</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="/fonts/fonts.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <a class="brand" href="#" aria-label="China Miner home"
+          ><svg viewBox="0 0 40 40" aria-hidden="true">
+            <path
+              d="m11 29 16-21M8 10c11-5 19 0 25 8M11 10l4 7M27 13l-5 4"
+            /></svg
+          ><span>CHINA MINER<small>THE JADE MINES</small></span></a
+        >
+        <nav aria-label="Main navigation">
+          <button id="play-tab" class="nav-active">Play</button
+          ><button id="rooms-button">The caverns <span>30</span></button
+          ><button id="about-button">About</button>
+        </nav>
+        <div class="header-actions">
+          <button
+            id="sound-button"
+            class="icon-button"
+            aria-label="Enable sound"
+            title="Toggle sound (M)"
+          >
+            <span id="sound-icon">♪</span></button
+          ><button id="debug-button" class="dev-button" aria-expanded="false">
+            ⌘ <span>Developer</span>
+          </button>
+        </div>
+      </header>
+      <main>
+        <div class="intro">
+          <div>
+            <p class="eyebrow">
+              <span class="status-dot"></span> A CLASSIC, REDISCOVERED
+            </p>
+            <h1>Into the jade depths<span>.</span></h1>
+          </div>
+          <p class="intro-note">
+            Thirty caverns. Five lives.<br />The same wonderfully unforgiving
+            adventure.
+          </p>
+        </div>
+        <section class="game-shell" aria-label="China Miner game">
+          <div class="game-topbar">
+            <div class="room-heading">
+              <span id="room-number">01</span>
+              <div>
+                <p id="biome-label">THE JADE MINES</p>
+                <h2 id="room-name">Entrance Hall</h2>
+              </div>
+            </div>
+            <div class="stats">
+              <div><span>SCORE</span><strong id="score">00000</strong></div>
+              <div>
+                <span>LIVES</span
+                ><strong id="lives" aria-label="5 lives">◆ ◆ ◆ ◆ ◆</strong>
+              </div>
+              <div>
+                <span>COLLECTED</span
+                ><strong id="collected">0 <i>/ 4</i></strong>
+              </div>
+            </div>
+          </div>
+          <div
+            id="viewport"
+            tabindex="0"
+            aria-label="Game. Arrow keys move, Space plus a direction jumps, P pauses."
+          >
+            <div class="vignette"></div>
+            <div class="scene-label">
+              <span class="diamond">◇</span>
+              <span id="scene-label">PONG DYNASTY · JADE MINE 01</span>
+            </div>
+            <div id="start-overlay" class="overlay">
+              <div class="start-card">
+                <p class="eyebrow">THE ADVENTURE BEGINS</p>
+                <h2>Welcome back, Wally.</h2>
+                <p>Gather four treasures. Find the key.<br />Mind your step.</p>
+                <button class="primary" id="start-button">
+                  Enter the mine <span>↗</span></button
+                ><small>or press Enter to begin</small>
+              </div>
+            </div>
+            <div id="pause-overlay" class="overlay" hidden>
+              <div class="start-card">
+                <p class="eyebrow" id="pause-kicker">TAKE A BREATHER</p>
+                <h2 id="pause-title">Lanterns still burning.</h2>
+                <p id="pause-copy">Your adventure is paused.</p>
+                <button class="primary" id="resume-button">
+                  Back to the mine <span>→</span>
+                </button>
+              </div>
+            </div>
+            <div id="toast" role="status" aria-live="polite"></div>
+            <span id="practice-badge" hidden>TEST MODE · ASSISTED</span>
+            <button
+              id="fullscreen-button"
+              class="fullscreen"
+              aria-label="Toggle fullscreen"
+              title="Fullscreen"
+            >
+              ⛶
+            </button>
+            <div class="touch-controls">
+              <div>
+                <button data-key="4" aria-label="Move left">←</button
+                ><button data-key="1" aria-label="Climb up">↑</button
+                ><button data-key="2" aria-label="Climb down">↓</button
+                ><button data-key="8" aria-label="Move right">→</button>
+              </div>
+              <button data-key="16" aria-label="Jump">JUMP</button>
+            </div>
+          </div>
+          <div class="game-bottom">
+            <div class="controls-hint">
+              <span><kbd>←</kbd><kbd>→</kbd> Move</span
+              ><span><kbd>↑</kbd><kbd>↓</kbd> Climb</span
+              ><span><kbd>Space</kbd> + direction · Jump</span
+              ><span><kbd>P</kbd> Pause</span>
+            </div>
+            <button id="restart-button">↻ <span>Restart room</span></button>
+          </div>
+        </section>
+        <div class="below-game">
+          <div class="objective">
+            <div class="objective-icon">◇</div>
+            <div>
+              <h3>A little treasure. A lot of trouble.</h3>
+              <p>
+                Collect the pickaxe, candle, lantern and jade vase. Then take
+                the key.
+              </p>
+            </div>
+          </div>
+          <button id="browse-button" class="text-link">
+            Explore the 30 caverns <span>↗</span>
+          </button>
+        </div>
+        <div class="artifact-row" aria-label="Treasure checklist">
+          <div data-item="251">
+            <span>⚒</span>
+            <p>01 <b>Pickaxe</b></p>
+            <i>FIND</i>
+          </div>
+          <div data-item="252">
+            <span>♙</span>
+            <p>02 <b>Candle</b></p>
+            <i>FIND</i>
+          </div>
+          <div data-item="253">
+            <span>♧</span>
+            <p>03 <b>Lantern</b></p>
+            <i>FIND</i>
+          </div>
+          <div data-item="254">
+            <span>♜</span>
+            <p>04 <b>Jade vase</b></p>
+            <i>FIND</i>
+          </div>
+          <div class="key-item">
+            <span>⚿</span>
+            <p>
+              <b>The key</b
+              ><small id="key-status">Collect all four to unlock</small>
+            </p>
+          </div>
+        </div>
+      </main>
+      <footer>
+        <p>
+          A tribute to <strong>Ian Gray</strong> · Original programmer &amp;
+          game designer<br /><span
+            >China Miner © 1984 Interceptor Software. Original music: Chris
+            Cox.</span
+          >
+        </p>
+        <div>
+          <span class="status-dot"></span> REIMAGINED WITH THREE.JS
+          <span class="footer-year">1984 → 2026</span>
+        </div>
+      </footer>
+    </div>
+    <dialog id="rooms-dialog">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">A DESCENT IN THIRTY CHAPTERS</p>
+          <h2>The caverns</h2>
+        </div>
+        <button
+          class="close-button"
+          data-close="rooms-dialog"
+          aria-label="Close caverns"
+        >
+          ×
+        </button>
+      </div>
+      <p class="dialog-intro">
+        Choose a room to test or practise. Each selection starts with five lives
+        and a fresh score.
+      </p>
+      <div id="rooms-grid"></div>
+    </dialog>
+    <dialog id="about-dialog">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">BUILT ON A CLASSIC</p>
+          <h2>In the footsteps of Ian Gray.</h2>
+        </div>
+        <button
+          class="close-button"
+          data-close="about-dialog"
+          aria-label="Close about"
+        >
+          ×
+        </button>
+      </div>
+      <div class="about-body">
+        <p>
+          <strong>Original programming and game design: Ian Gray.</strong
+          ><br />Published by Interceptor Software in 1984 for the Commodore 64.
+          Original music by Chris Cox, based on Scott Joplin’s
+          <em>Maple Leaf Rag</em>.
+        </p>
+        <p>
+          This fan remake gives Wally’s jade mines a new Three.js presentation.
+          All 30 room maps, enemy paths and original movement routines are
+          retained. The original sprite masks still determine enemy collisions,
+          underneath the new artwork.
+        </p>
+        <p>
+          The original is tough from the first room: short, deliberate movements
+          matter. Move slightly left before jumping over the first creature.
+          Hold <strong>Space with a direction</strong> to jump; use
+          <strong>↑ + Space</strong> for a vertical jump. High falls, spikes,
+          creatures and active lasers are lethal.
+        </p>
+        <p>
+          The developer tools are for testing. Normal play starts with five
+          lives, resets the room on death, and awards an extra life every five
+          completed rooms. Audio here is newly synthesized ambience and effects.
+        </p>
+        <p class="fidelity-note">
+          Fidelity note: the original game routines and geometry are preserved.
+          Browser scheduling and sprite-collision sampling do not emulate the
+          entire C64’s raster timing or sound interrupts. Cycle-exact longplay
+          equivalence has not been certified.
+        </p>
+        <a
+          href="https://www.youtube.com/watch?v=Yg7RBFTAD4g"
+          target="_blank"
+          rel="noreferrer"
+          >Watch the original C64 longplay ↗</a
+        >
+      </div>
+    </dialog>
+    <aside id="debug-panel" hidden aria-label="Developer tools">
+      <div class="debug-header">
+        <div>
+          <p class="eyebrow">TEST BENCH</p>
+          <h2>Developer tools</h2>
+        </div>
+        <button
+          id="close-debug"
+          class="close-button"
+          aria-label="Close developer tools"
+        >
+          ×
+        </button>
+      </div>
+      <label for="level-select">Jump to room</label
+      ><select id="level-select"></select>
+      <div class="debug-row">
+        <button id="prev-level">← Previous</button
+        ><button id="next-level">Next →</button>
+      </div>
+      <label class="check"
+        ><input type="checkbox" id="god-mode" /> Invulnerability
+        <kbd>G</kbd></label
+      ><label class="check"
+        ><input type="checkbox" id="collision-mode" /> Tile grid &amp; sprite
+        bounds</label
+      ><label for="speed-select">Simulation speed</label
+      ><select id="speed-select">
+        <option value="1">1× · Original CPU clock</option>
+        <option value="0.5">½× · Slow motion</option>
+        <option value="0.25">¼× · Precision testing</option>
+        <option value="2">2× · Fast forward</option>
+      </select>
+      <div class="debug-row">
+        <button id="pause-debug">Pause / resume</button
+        ><button id="step-debug">Single step</button>
+      </div>
+      <button id="unlock-debug">Collect all treasures (test)</button
+      ><button id="copy-debug">Copy state as JSON</button>
+      <pre id="debug-state"></pre>
+      <p class="debug-note">
+        <kbd>[</kbd> / <kbd>]</kbd> Skip rooms ·
+        <kbd>F2</kbd> Tools<br />Assists mark the run as a test. Hitboxes shown
+        are sprite bounds; actual enemy collision uses the original pixel masks.
+      </p>
+    </aside>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
