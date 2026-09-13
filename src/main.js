@@ -1,6 +1,7 @@
 import "./style.css";
 import { MinerEngine } from "./engine.js";
 import { MineScene } from "./scene.js";
+import { loadSettings, saveSettings } from "./settings.js";
 
 const $ = (id) => document.getElementById(id);
 const base = import.meta.env.BASE_URL;
@@ -11,10 +12,18 @@ const [data, levels] = await Promise.all(
     return r.json();
   }),
 );
-const engine = new MinerEngine(data, levels);
+let storage;
+try {
+  storage = localStorage;
+} catch {
+  /* Storage may be disabled. */
+}
+const settings = loadSettings(storage);
+const engine = new MinerEngine(data, levels, settings);
 let scene;
 try {
   scene = new MineScene($("viewport"), engine);
+  scene.lowMotion ||= settings.reducedMotion;
 } catch (error) {
   $("start-button").disabled = true;
   $("start-overlay").querySelector("h2").textContent = "WebGL could not start";
@@ -169,7 +178,7 @@ function gameTick() {
   if (after.lives < before.lives) {
     audio?.effect("death");
     toast(
-      `${after.lives} ${after.lives === 1 ? "life" : "lives"} left · Room reset`,
+      `${after.lives} ${after.lives === 1 ? "life" : "lives"} left · ${after.lastDeath?.reason || "hazard"}`,
     );
     $("viewport").animate(
       [
@@ -207,6 +216,10 @@ function updateUI() {
   $("scene-label").textContent =
     `PONG DYNASTY · JADE MINE ${String(i + 1).padStart(2, "0")}`;
   $("score").textContent = String(engine.score).padStart(5, "0");
+  $("mode-badge").textContent = engine.hardcore ? "HARDCORE" : "MODERN";
+  $("jump-hint").textContent = engine.hardcore
+    ? "+ direction · Jump"
+    : "Jump · steer in air";
   $("lives").textContent = Array(Math.min(engine.lives, 10))
     .fill("◆")
     .join(" ");
@@ -226,6 +239,8 @@ function updateUI() {
     $("debug-state").textContent =
       `ROOM ${s.level} / 30    ${paused ? "PAUSED" : "RUNNING"}\nX ${s.player.x}  Y ${s.player.y}\nJump ${s.jumpPhase}  Fall ${s.fallCounter}\nInput 0x${s.input.toString(16)}  Frame ${s.player.frame}\nTick ${s.ticks}  Score ${s.score}\nCPU cycles ${s.cycles}\n${assisted ? "TEST RUN" : "NORMAL RUN"} · ${speed}×`;
     $("pause-debug").textContent = paused ? "Resume" : "Pause";
+    $("debug-state").textContent +=
+      `\nMode: ${s.mode}\nLast death: ${s.lastDeath?.reason || "none"}`;
   }
 }
 function toggleDebug() {
@@ -263,6 +278,38 @@ $("play-tab").onclick = () => {
 $("rooms-button").onclick = $("browse-button").onclick = () =>
   openDialog("rooms-dialog");
 $("about-button").onclick = () => openDialog("about-dialog");
+$("settings-button").onclick = () => {
+  $("hardcore-setting").checked = settings.hardcore;
+  $("motion-setting").checked = settings.reducedMotion;
+  openDialog("settings-dialog");
+};
+$("save-settings").onclick = () => {
+  const changed = settings.hardcore !== $("hardcore-setting").checked;
+  settings.hardcore = $("hardcore-setting").checked;
+  settings.reducedMotion = $("motion-setting").checked;
+  engine.hardcore = settings.hardcore;
+  scene.lowMotion =
+    settings.reducedMotion ||
+    matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const saved = saveSettings(storage, settings);
+  $("settings-dialog").close();
+  if (changed) {
+    engine.reset(engine.level);
+    engine.god = false;
+    $("god-mode").checked = false;
+    speed = 1;
+    $("speed-select").value = "1";
+    assisted = false;
+    $("practice-badge").hidden = true;
+    started = false;
+    $("start-overlay").hidden = false;
+    setPaused(true, false);
+  } else if (started && engine.status === "playing") setPaused(true);
+  updateUI();
+  toast(
+    `${settings.hardcore ? "Hardcore" : "Modern"} mode${saved ? " saved" : " applied for this session"}${changed ? " · fresh room" : ""}`,
+  );
+};
 document
   .querySelectorAll("[data-close]")
   .forEach((el) => (el.onclick = () => closeDialog(el.dataset.close)));

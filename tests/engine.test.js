@@ -4,6 +4,7 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import { MinerEngine } from "../src/engine.js";
 import { CPU } from "../src/cpu.js";
+import { loadSettings, saveSettings } from "../src/settings.js";
 
 const data = JSON.parse(
   fs.readFileSync(new URL("../public/data/original.json", import.meta.url)),
@@ -133,16 +134,94 @@ test("sprite collision uses pixel masks, not merely overlapping rectangles", () 
   e.m[0xd001] = 100;
   e.m[0xd002] = 100;
   e.m[0xd003] = 100;
+  e.m[0x352] = 50;
+  e.m[0x35c] = 100;
   e.m[0x7f8] = 0x90;
   e.m[0x7f9] = 0x91;
   e.m.fill(0, 0x2400, 0x2480);
   e.m[0x2400] = 0x80;
   e.m[0x2440] = 0x40;
   assert.equal(e.spriteCollision(), 0);
-  e.m[0x2440] = 0x80;
+  e.m[0x2440] = 0;
+  e.m[0x2462] = 0x10; // Enemy pixel at (11, 11), inside the displayed torso.
+  assert.equal(e.spriteCollision(), 3);
+  e.m[0x352] = 60; // Logical movement precedes the VIC register update.
+  assert.equal(e.spriteCollision(), 0);
+  e.m[0xd002] = 120;
   assert.equal(e.spriteCollision(), 3);
   e.god = true;
   assert.equal(e.spriteCollision(), 0);
+});
+function openFloor(hardcore) {
+  const e = new MinerEngine(data, levels, { hardcore });
+  e.m.fill(32, 0x4a0, 0x7c0);
+  e.god = true;
+  return e;
+}
+test("Modern supports Space-only jumping, air reversal and stopping; Hardcore commits its direction", () => {
+  const e = openFloor(false);
+  const x = e.m[0x352],
+    y = e.m[0x35c];
+  e.tick(16);
+  assert.equal(e.m[0x35c], y - 2);
+  e.tick(8);
+  assert.equal(e.m[0x352], x + 1);
+  e.tick(4);
+  assert.equal(e.m[0x352], x);
+  e.tick(0);
+  assert.equal(e.m[0x352], x);
+  const h = openFloor(true);
+  h.tick(24);
+  h.tick(24);
+  const hx = h.m[0x352];
+  h.tick(4);
+  assert.equal(h.m[0x352], hx + 1);
+});
+test("Modern buffers a jump just before landing and does not repeatedly jump while held", () => {
+  const e = openFloor(false);
+  e.m[0x35c] = 219;
+  e.m[0x3d6] = 1;
+  e.tick(16);
+  assert.equal(e.m[0x35c], 221);
+  e.tick(16);
+  assert.equal(e.m[0x35c], 219);
+  for (let i = 0; i < 80; i++) e.tick(16);
+  assert.equal(e.m[0x35c], 221);
+  assert.equal(e.m[0x3d4], 0);
+  e.reset();
+  assert.equal(e.hardcore, false);
+  assert.equal(e.jumpBuffer, 0);
+  assert.equal(e.previousJump, false);
+});
+test("Modern runs every original room with changing inputs", () => {
+  const e = new MinerEngine(data, levels, { hardcore: false });
+  for (let room = 0; room < 30; room++) {
+    e.select(room);
+    for (let i = 0; i < 120 && e.status === "playing"; i++)
+      e.tick([0, 4, 8, 16, 24][Math.floor(i / 12) % 5]);
+    assert.ok(["playing", "gameover"].includes(e.status));
+    assert.ok(e.lives >= 0 && e.lives <= 5);
+  }
+});
+test("Settings default to Modern and persist safely even when storage is unavailable", () => {
+  let value;
+  const storage = { getItem: () => value, setItem: (_, v) => (value = v) };
+  assert.deepEqual(loadSettings(storage), {
+    hardcore: false,
+    reducedMotion: false,
+  });
+  assert.equal(
+    saveSettings(storage, { hardcore: true, reducedMotion: true }),
+    true,
+  );
+  assert.deepEqual(loadSettings(storage), {
+    hardcore: true,
+    reducedMotion: true,
+  });
+  value = "broken json";
+  assert.equal(loadSettings(storage).hardcore, false);
+  assert.equal(saveSettings(null, {}), false);
+  assert.equal(loadSettings(null).hardcore, false);
 });
 test("jump arc has twelve two-pixel ascent steps and a four-step apex, as in the original routine", () => {
   const e = fresh();

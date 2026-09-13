@@ -27,9 +27,9 @@ The game loop begins at `$82C0`; room loading starts at `$8248`; death begins at
 
 ## Independent trace
 
-`tests/reference-trace.json` was generated using py65, executing the original routine instructions, including their actual busy-wait loops. It covers 100 updates: eight left inputs followed by 92 neutral inputs, with sprite collision disabled in both implementations. All registers, the first 2 KiB of RAM and instruction-cycle totals match. The reference generator corrects py65’s DEC-absolute cycle metadata from 3 to the NMOS 6502’s 6 cycles.
+`tests/reference-trace.json` was generated using py65, executing the original routine instructions, including their actual busy-wait loops. It covers 100 Hardcore updates: eight left inputs followed by 92 neutral inputs, with sprite collision disabled in both implementations. All registers, the first 2 KiB of RAM and instruction-cycle totals match. The reference generator corrects py65’s DEC-absolute cycle metadata from 3 to the NMOS 6502’s 6 cycles.
 
-The production interpreter replaces only the original busy wait with its instruction-cycle cost: `3325 * iterations + 17`. It retains the final registers, relevant memory and flags. All other gameplay instructions execute normally.
+The production interpreter replaces only the original busy wait with its instruction-cycle cost: `3325 * iterations + 17`. It retains the final registers, relevant memory and flags. In Hardcore, other gameplay instructions execute normally, with corrected creature contact supplied by the host. Modern mode intercepts jump setup at `$82D8`, airborne direction at `$82F9`, and the hazard flag at `$8601`.
 
 To regenerate the independent fixture, install `py65` in a Python virtual environment and run `python scripts/reference-trace.py`. This is optional; normal builds and tests need only Node.js.
 
@@ -37,4 +37,4 @@ To regenerate the independent fixture, install `py65` in a Python virtual enviro
 
 ## Remaining limits
 
-The original maps and routines are checked; full-system, raster-latched sprite collisions and sound-interrupt timing are not reproduced. No automated solver or full unassisted thirty-room playthrough has been used to certify longplay equivalence. Original sprite masks are the authority for creature collisions; the displayed bounds in the developer panel are a visual aid, not the collision algorithm.
+The original maps and routines are checked; full-system, raster-latched sprite collisions and sound-interrupt timing are not reproduced. No automated solver or full unassisted thirty-room playthrough has been used to certify longplay equivalence. Creature collision combines original enemy sprite pixels with the shared miner body/hat projection in `src/miner-shape.js`. The current logical player coordinates avoid the stale VIC position at the original collision-check point. The developer overlay shows the gold player contact mask and creature bounds; transparent enemy pixels do not collide.

@@ -1,8 +1,9 @@
 import { CPU } from "./cpu.js";
+import { minerContains, MINER_CONTACT_PIXELS } from "./miner-shape.js";
 
 export const PAL_HZ = 985248;
 export class MinerEngine {
-  constructor(data, levels) {
+  constructor(data, levels, { hardcore = true } = {}) {
     this.original = new Uint8Array(65536);
     for (const s of data.segments) {
       const raw = atob(s.bytes);
@@ -10,6 +11,7 @@ export class MinerEngine {
         this.original[s.address + i] = raw.charCodeAt(i);
     }
     this.levels = levels;
+    this.hardcore = hardcore;
     this.god = false;
     this.input = 0;
     this.status = "ready";
@@ -36,6 +38,11 @@ export class MinerEngine {
     this.status = "playing";
     this.ticks = 0;
     this.elapsed = 0;
+    this.jumpBuffer = 0;
+    this.previousJump = false;
+    this.lastDeath = null;
+    this.deathReason = null;
+    this.input = 0;
     this.runToBoundary(true);
   }
   get level() {
@@ -74,9 +81,56 @@ export class MinerEngine {
       ? !!((b >> (6 - ((x & 7) >> 1) * 2)) & 3)
       : !!((b >> (7 - (x & 7))) & 1);
   }
+  playerContactSprite() {
+    // VIC registers are updated AFTER the game's collision check. Use the current
+    // logical position, which is the position rendered at the end of this update.
+    return {
+      ...this.sprite(0),
+      x: this.m[0x352] * 2 - 24,
+      y: this.m[0x35c] - 82,
+    };
+  }
+  grounded() {
+    const m = this.m;
+    if (m[0x3cf] !== 0) return false;
+    const address = m[0xfb] | (m[0xfc] << 8);
+    const a = m[address + 121],
+      b = m[address + 122];
+    return (
+      (a !== 32 && a < 128) || (b !== 32 && b < 128) || (a === 134 && b === 134)
+    );
+  }
+  modernJumpStart() {
+    if (this.m[0x3d4]) return;
+    this.m[0x3d2] = 0; // No unwanted auto-jump from holding the button down.
+    if (!this.jumpBuffer || !this.grounded()) return;
+    const horizontal = this.input & 12;
+    this.m[0x3d2] = 16;
+    this.m[0x3d3] = horizontal === 12 ? 0 : horizontal;
+    this.m[0x3d7] = horizontal === 4 ? 0x84 : horizontal === 8 ? 0x80 : 0x8f;
+    this.jumpBuffer = 0;
+  }
+  touchingHazard() {
+    const p = this.playerContactSprite();
+    for (const point of MINER_CONTACT_PIXELS) {
+      const px = p.x + point.x + 0.5,
+        py = p.y + point.y + 0.5;
+      const tx = Math.floor(px / 8),
+        ty = Math.floor(py / 8);
+      if (tx < 0 || tx >= 40 || ty < 0 || ty >= 20) continue;
+      const tile = this.m[0x4a0 + ty * 40 + tx],
+        x = px - tx * 8,
+        y = py - ty * 8;
+      if (tile === 70 && Math.abs(x - 4) <= (8 - y) * 0.45) return true;
+      if (tile === 135 && Math.abs(x - 4) <= y * 0.45) return true;
+      if (tile === 137 && Math.abs(y - 4) < 0.5) return true;
+      if (tile === 139 && Math.abs(x - 4) < 0.5) return true;
+    }
+    return false;
+  }
   spriteCollision() {
     if (this.god) return 0;
-    const p = this.sprite(0);
+    const p = this.playerContactSprite();
     if (!p.enabled) return 0;
     for (let i = 1; i < 8; i++) {
       const e = this.sprite(i);
@@ -88,7 +142,7 @@ export class MinerEngine {
       for (let y = y0; y < y1; y++)
         for (let x = x0; x < x1; x++)
           if (
-            this.opaque(p, x - p.x, y - p.y) &&
+            minerContains(x - p.x + 0.5, y - p.y + 0.5) &&
             this.opaque(e, x - e.x, y - e.y)
           )
             return 1 | (1 << i);
@@ -110,6 +164,26 @@ export class MinerEngine {
       if (c.pc === 0x876e) {
         this.status = "complete";
         return c.cycles - start;
+      }
+      if (!this.hardcore) {
+        if (c.pc === 0x82d8) this.modernJumpStart();
+        if (c.pc === 0x82f9) {
+          const horizontal = this.input & 12;
+          this.m[0x3d3] = horizontal === 12 ? 0 : horizontal;
+        }
+        // Original character-cell hazards are larger than the new spike/laser art.
+        // Only accept their death branch when the visible shapes actually touch.
+        if (c.pc === 0x8601) this.m[0x33a] = this.touchingHazard() ? 1 : 0;
+      }
+      if (c.pc === 0x86c4) this.deathReason = "creature";
+      if (c.pc === 0x8606) this.deathReason = "spikes or laser";
+      if (c.pc === 0x8391) this.deathReason = "long fall";
+      if (c.pc === 0x8742 && !this.god) {
+        this.lastDeath = {
+          reason: this.deathReason || "hazard",
+          player: this.playerContactSprite(),
+          tick: this.ticks,
+        };
       }
       if (c.pc === 0x8742 && this.god) {
         // Test aid: ignore deaths, but recover out-of-bounds falls by reloading the room.
@@ -141,7 +215,13 @@ export class MinerEngine {
   tick(input = this.input) {
     if (this.status !== "playing") return 0;
     this.input = input;
+    if (!this.hardcore) {
+      const jump = !!(input & 16);
+      if (jump && !this.previousJump && !this.dying) this.jumpBuffer = 3;
+      this.previousJump = jump;
+    }
     const cycles = this.runToBoundary(false, true);
+    if (this.jumpBuffer) this.jumpBuffer--;
     this.ticks++;
     const dt = cycles / PAL_HZ;
     this.elapsed += dt;
@@ -161,6 +241,8 @@ export class MinerEngine {
       jumpPhase: this.m[0x3d4],
       fallCounter: this.m[0x3d6],
       input: this.input,
+      mode: this.hardcore ? "hardcore" : "modern",
+      lastDeath: this.lastDeath,
     };
   }
 }

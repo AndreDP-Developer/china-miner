@@ -29,19 +29,25 @@ The production site is generated in `dist/` and works under a subdirectory. Serv
 
 ## Play
 
-| Control                             | Action          |
-| ----------------------------------- | --------------- |
-| Left / Right, or A / D              | Walk            |
-| Up / Down, or W / S                 | Climb ladders   |
-| Space or Shift **with a direction** | Jump            |
-| Up + Space                          | Vertical jump   |
-| P / Escape                          | Pause or resume |
-| Enter                               | Start or resume |
-| M                                   | Toggle sound    |
+| Control                | Action                                   |
+| ---------------------- | ---------------------------------------- |
+| Left / Right, or A / D | Walk                                     |
+| Up / Down, or W / S    | Climb ladders                            |
+| Space or Shift         | Jump (Modern); add direction in Hardcore |
+| Up + Space             | Vertical jump                            |
+| P / Escape             | Pause or resume                          |
+| Enter                  | Start or resume                          |
+| M                      | Toggle sound                             |
 
-Touch buttons and standard gamepad movement / button A are supported. For gamepads, use a vertical direction with A to jump straight up. Switching away from the game pauses it and clears held input.
+Touch buttons and standard gamepad movement / button A are supported. In Hardcore, use a vertical direction with gamepad A to jump straight up. Switching away from the game pauses it and clears held input.
 
 Collect the **pickaxe, candle, lantern and jade vase**, then take the key. Every item and key is worth 50 points. You begin with five lives, gain an extra life every five rooms, and lose a life to creatures, spikes, active lasers or long falls. Death restores the room’s items and collapsing floors. The first room is already difficult; its unforgiving layout has deliberately been retained.
+
+## Settings
+
+Open the gear **Settings** button. **Modern is the default:** Space alone jumps, you can reverse or stop horizontally during a jump, and a brief input buffer catches presses just before landing. Spike and laser contact follows their visible shapes. **Hardcore** preserves the original committed jump direction, directional fire-button controls, fall limit and character-cell hazard rules. Both modes retain all thirty original maps and use corrected creature contact against the miner’s visible body and triangular straw hat. Hands and the pickaxe are cosmetic.
+
+Settings are remembered in this browser. Changing mode restarts the current room with five lives and zero score. A reduced-animation option is also available.
 
 ## Debugging and level skipping
 
@@ -53,7 +59,7 @@ Click **Developer** or press **F2**. No console commands are needed.
 | `[` / `]`                      | Previous / next room shortcuts                                       |
 | The caverns                    | Visual room browser with original map thumbnails                     |
 | Invulnerability / G            | Ignore creature and hazard deaths; recover extreme falls             |
-| Tile grid & sprite bounds      | Inspect the original 8-pixel grid and sprite rectangles              |
+| Tile grid & contact mask       | Inspect the tile grid, creature bounds and gold miner contact mask   |
 | ¼×, ½×, 1×, 2× speed           | Slow motion and fast-forward                                         |
 | Single step                    | Advance one game update, or one death-animation update               |
 | Collect all treasures          | Unlock the key for transition testing                                |
@@ -79,19 +85,20 @@ chinaMiner.resume();
 
 ## Fidelity and implementation
 
-This is **not a physics approximation made from video**. A small NMOS 6502 interpreter executes the recovered gameplay routines, and Three.js renders their output. No C64 system ROM or full-system emulator is bundled. Character-grid collision, jump phases, ladders, conveyors, collapsing floors, slides, moving platforms, laser phases, scoring and enemy motion remain in those routines. Enemy collision uses the original sprite pixel masks, independent of the new visual models.
+This is **not a physics approximation made from video**. A small NMOS 6502 interpreter executes the recovered gameplay routines, and Three.js renders their output. No C64 system ROM or full-system emulator is bundled. Character-grid collision, jump phases, ladders, conveyors, collapsing floors, slides, moving platforms, laser phases, scoring and enemy motion remain in those routines. Creature contact uses the original enemy pixel masks against a conservative projection of the new miner’s body and hat, at the current logical position. Modern mode adds the movement and hazard overrides described above.
 
 The simulation is scheduled against the PAL CPU clock, 985,248 Hz. Original busy waits retain their calculated instruction-cycle cost without wasting host CPU time. Browser rendering is independent of game updates. Death animation yields visual frames while retaining the original delay cost.
 
-**Limits:** This does not simulate VIC-II raster timing, CPU contention or SID / KERNAL interrupts. Sprite collision is sampled at the original collision-check point rather than latched over a full hardware raster. The new miner mesh and cosmetic backgrounds are not collision geometry. Therefore frame-for-frame timing equivalence to an entire C64 longplay is **not certified**. The original layouts and gameplay routines are preserved, but this is not a cycle-exact C64 emulator.
+**Limits:** This does not simulate VIC-II raster timing, CPU contention or SID / KERNAL interrupts. Sprite collision is sampled at the original collision-check point rather than latched over a full hardware raster. The miner contact mask is shared with its model dimensions; cosmetic limb animations and backgrounds do not affect contact. Therefore frame-for-frame timing equivalence to an entire C64 longplay is **not certified**. The original layouts and gameplay routines are preserved, but this is not a cycle-exact C64 emulator.
 
 Tests cover:
 
 - Every original room’s 800 map bytes, SHA-256 digest and five treasure markers.
-- 100 game updates against an independently generated py65 reference, including CPU registers, working RAM and cycle counts.
-- 120 simulation updates in every room with changing inputs.
+- 100 Hardcore game updates against an independently generated py65 reference, including CPU registers, working RAM and cycle counts.
+- 120 simulation updates in every room in both modes with changing inputs.
 - Key locking, collection order, scoring, room transitions, extra lives and the final ending.
-- Death resets, game over, the jump arc, and pixel-mask collision.
+- Death resets, game over, the jump arc, visible creature contact and stale-coordinate regression.
+- Modern air steering, jump buffering, held-button behavior and persistent settings.
 
 The reference trace uses an input sequence and disables sprite collision to isolate CPU and movement behavior. It is not a complete 30-room playthrough. See [reference notes](docs/REFERENCE.md).
 

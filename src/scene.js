@@ -1,5 +1,6 @@
 import * as THREE from "./vendor/three.module.js";
 import { RoundedBoxGeometry } from "./vendor/RoundedBoxGeometry.js";
+import { MINER, MINER_CONTACT_PIXELS } from "./miner-shape.js";
 
 const COLORS = [
   0x15272b, 0xffedd5, 0xc07755, 0x71dedb, 0xbe81cf, 0x84b58a, 0x6998b1,
@@ -201,22 +202,63 @@ export class MineScene {
       skin = material(0xecc7a0),
       boots = material(0x354044),
       red = material(0xa86048);
-    box(g, jacket, 0, 1.0, 0, 0.87, 0.95, 0.6);
+    box(
+      g,
+      jacket,
+      MINER.torso.x,
+      MINER.torso.y,
+      0,
+      MINER.torso.width,
+      MINER.torso.height,
+      0.6,
+    );
     box(g, red, 0, 0.66, 0.04, 0.89, 0.14, 0.66);
-    mesh(g, sphereGeometry, skin, 0, 1.73, 0.03, 0.44, 0.44, 0.37);
-    mesh(g, sphereGeometry, this.gold, 0, 1.98, -0.02, 0.53, 0.3, 0.45);
-    box(g, this.gold, 0, 1.9, 0.02, 1.14, 0.11, 0.95);
-    box(g, this.dark, 0.05, 1.94, 0.48, 0.3, 0.24, 0.16);
     mesh(
       g,
       sphereGeometry,
-      material(0xfff0bb, { emissive: 0xffdd92, emissiveIntensity: 3 }),
-      0.05,
-      1.94,
-      0.59,
-      0.11,
-      0.095,
-      0.06,
+      skin,
+      MINER.head.x,
+      MINER.head.y,
+      0.03,
+      MINER.head.rx,
+      MINER.head.ry,
+      0.37,
+    );
+    const straw = material(0xd5b578, { roughness: 0.96 });
+    const hat = new THREE.Mesh(
+      new THREE.ConeGeometry(MINER.hat.radius, MINER.hat.height, 24),
+      straw,
+    );
+    hat.position.y = MINER.hat.baseY + MINER.hat.height / 2;
+    hat.name = "triangular-straw-hat";
+    g.add(hat);
+    cylinder(g, this.gold, 0, MINER.hat.baseY, 0, MINER.hat.radius, 0.035);
+    const seams = [];
+    for (let i = 0; i < 16; i++) {
+      const angle = (i * Math.PI) / 8;
+      seams.push(
+        0,
+        MINER.hat.baseY + MINER.hat.height + 0.005,
+        0,
+        Math.cos(angle) * MINER.hat.radius,
+        MINER.hat.baseY + 0.008,
+        Math.sin(angle) * MINER.hat.radius,
+      );
+    }
+    const seamGeometry = new THREE.BufferGeometry();
+    seamGeometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(seams, 3),
+    );
+    g.add(
+      new THREE.LineSegments(
+        seamGeometry,
+        new THREE.LineBasicMaterial({
+          color: 0x937044,
+          transparent: true,
+          opacity: 0.5,
+        }),
+      ),
     );
     box(g, this.dark, -0.16, 1.71, 0.375, 0.07, 0.065, 0.035);
     box(g, this.dark, 0.15, 1.71, 0.375, 0.07, 0.065, 0.035);
@@ -248,7 +290,7 @@ export class MineScene {
       0.12,
       0.13,
     ).rotation.z = 0.23;
-    g.scale.setScalar(1.08);
+    g.scale.setScalar(MINER.scale);
     return g;
   }
   buildBackground(level) {
@@ -731,6 +773,50 @@ export class MineScene {
       l.position.set((s.x + 12) / 8, 20 - (s.y + 10.5) / 8, 1.6);
       this.debugGroup.add(l);
     }
+    const p = this.engine.sprite(0),
+      contact = [];
+    for (const { x, y } of MINER_CONTACT_PIXELS) {
+      const x0 = (p.x + x) / 8,
+        y0 = 20 - (p.y + y) / 8;
+      contact.push(
+        x0,
+        y0,
+        1.7,
+        x0 + 0.125,
+        y0,
+        1.7,
+        x0 + 0.125,
+        y0,
+        1.7,
+        x0 + 0.125,
+        y0 - 0.125,
+        1.7,
+        x0 + 0.125,
+        y0 - 0.125,
+        1.7,
+        x0,
+        y0 - 0.125,
+        1.7,
+        x0,
+        y0 - 0.125,
+        1.7,
+        x0,
+        y0,
+        1.7,
+      );
+    }
+    const mask = new THREE.BufferGeometry();
+    mask.setAttribute("position", new THREE.Float32BufferAttribute(contact, 3));
+    this.debugGroup.add(
+      new THREE.LineSegments(
+        mask,
+        new THREE.LineBasicMaterial({
+          color: 0xffeab0,
+          transparent: true,
+          opacity: 0.65,
+        }),
+      ),
+    );
   }
   render(time, playing) {
     const e = this.engine,
@@ -744,7 +830,11 @@ export class MineScene {
     this.rebuildTiles();
     this.drawEnemies();
     const p = e.sprite(0);
-    this.player.position.set((p.x + 12) / 8, 20 - (p.y + 21) / 8, 0.5);
+    this.player.position.set(
+      (p.x + MINER.anchorX) / 8,
+      20 - (p.y + MINER.feetY) / 8,
+      0.5,
+    );
     this.player.visible = p.enabled;
     const movement = playing && !!(e.input & 12),
       phase = this.lowMotion ? 0 : time * 14;
@@ -756,7 +846,7 @@ export class MineScene {
       (arm, i) =>
         (arm.rotation.x = movement ? Math.sin(phase + i * Math.PI) * -0.45 : 0),
     );
-    this.player.rotation.y = e.input & 4 ? -0.18 : e.input & 8 ? 0.18 : 0;
+    this.player.rotation.y = 0; // The projected body stays aligned with its contact mask.
     this.player.rotation.z = e.dying ? Math.sin(time * 18) * 0.2 : 0;
     this.lamp.position
       .copy(this.player.position)

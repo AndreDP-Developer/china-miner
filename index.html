@@ -29,6 +29,14 @@
         </nav>
         <div class="header-actions">
           <button
+            id="settings-button"
+            class="settings-button"
+            aria-label="Settings"
+            title="Game settings"
+          >
+            ⚙<span>Settings</span>
+          </button>
+          <button
             id="sound-button"
             class="icon-button"
             aria-label="Enable sound"
@@ -81,7 +89,8 @@
           >
             <div class="vignette"></div>
             <div class="scene-label">
-              <span class="diamond">◇</span>
+              <span id="mode-badge" class="mode-badge">MODERN</span
+              ><span class="diamond">◇</span>
               <span id="scene-label">PONG DYNASTY · JADE MINE 01</span>
             </div>
             <div id="start-overlay" class="overlay">
@@ -128,7 +137,9 @@
             <div class="controls-hint">
               <span><kbd>←</kbd><kbd>→</kbd> Move</span
               ><span><kbd>↑</kbd><kbd>↓</kbd> Climb</span
-              ><span><kbd>Space</kbd> + direction · Jump</span
+              ><span
+                ><kbd>Space</kbd>
+                <span id="jump-hint">Jump · steer in air</span></span
               ><span><kbd>P</kbd> Pause</span>
             </div>
             <button id="restart-button">↻ <span>Restart room</span></button>
@@ -213,6 +224,58 @@
       </p>
       <div id="rooms-grid"></div>
     </dialog>
+    <dialog id="settings-dialog" aria-labelledby="settings-title">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">MAKE THE MINE YOUR OWN</p>
+          <h2 id="settings-title">Settings</h2>
+        </div>
+        <button
+          class="close-button"
+          data-close="settings-dialog"
+          aria-label="Close settings"
+        >
+          ×
+        </button>
+      </div>
+      <label class="mode-setting" for="hardcore-setting"
+        ><div>
+          <strong>Hardcore mode</strong
+          ><span>The original challenge, with committed jumps.</span>
+        </div>
+        <input type="checkbox" id="hardcore-setting" role="switch"
+      /></label>
+      <div class="mode-comparison">
+        <div>
+          <h3>Off · Modern</h3>
+          <p>
+            Steer left or right during a jump, or release to stop. Space alone
+            jumps vertically. A short input buffer catches jumps pressed just
+            before landing. Spikes and lasers require visible contact.
+          </p>
+        </div>
+        <div>
+          <h3>On · Hardcore</h3>
+          <p>
+            Original jump direction lock, timing, character-cell hazards and
+            fall penalties. Hold a direction with Space to jump. Five lives,
+            original scores and original rooms.
+          </p>
+        </div>
+      </div>
+      <p class="settings-note">
+        Enemy contact follows Wally’s visible body and hat in both modes. Hands
+        and the pickaxe are cosmetic. Changing mode starts the current room
+        fresh with five lives and zero score.
+      </p>
+      <label class="check" for="motion-setting"
+        ><input type="checkbox" id="motion-setting" /> Reduce decorative
+        animation</label
+      >
+      <button class="primary" id="save-settings">
+        Save settings <span>✓</span>
+      </button>
+    </dialog>
     <dialog id="about-dialog">
       <div class="dialog-header">
         <div>
@@ -237,14 +300,17 @@
         <p>
           This fan remake gives Wally’s jade mines a new Three.js presentation.
           All 30 room maps, enemy paths and original movement routines are
-          retained. The original sprite masks still determine enemy collisions,
-          underneath the new artwork.
+          retained in Hardcore mode. Enemy sprite masks are tested against
+          Wally’s visible body and hat at his current position. Modern mode adds
+          air steering and more forgiving jump input; choose your mode in
+          Settings.
         </p>
         <p>
           The original is tough from the first room: short, deliberate movements
-          matter. Move slightly left before jumping over the first creature.
-          Hold <strong>Space with a direction</strong> to jump; use
-          <strong>↑ + Space</strong> for a vertical jump. High falls, spikes,
+          matter. Move slightly left before jumping over the first creature. In
+          Hardcore, hold <strong>Space with a direction</strong> to jump; use
+          <strong>↑ + Space</strong> for a vertical jump. In Modern mode, Space
+          alone jumps and you can steer in the air. High falls, spikes,
           creatures and active lasers are lethal.
         </p>
         <p>
@@ -253,10 +319,11 @@
           completed rooms. Audio here is newly synthesized ambience and effects.
         </p>
         <p class="fidelity-note">
-          Fidelity note: the original game routines and geometry are preserved.
-          Browser scheduling and sprite-collision sampling do not emulate the
-          entire C64’s raster timing or sound interrupts. Cycle-exact longplay
-          equivalence has not been certified.
+          Fidelity note: original movement is retained in Hardcore; both modes
+          use corrected visual enemy contact. Browser scheduling and
+          sprite-collision sampling do not emulate the entire C64’s raster
+          timing or sound interrupts. Cycle-exact longplay equivalence has not
+          been certified.
         </p>
         <a
           href="https://www.youtube.com/watch?v=Yg7RBFTAD4g"
@@ -290,8 +357,8 @@
         ><input type="checkbox" id="god-mode" /> Invulnerability
         <kbd>G</kbd></label
       ><label class="check"
-        ><input type="checkbox" id="collision-mode" /> Tile grid &amp; sprite
-        bounds</label
+        ><input type="checkbox" id="collision-mode" /> Tile grid &amp; contact
+        mask</label
       ><label for="speed-select">Simulation speed</label
       ><select id="speed-select">
         <option value="1">1× · Original CPU clock</option>
@@ -308,8 +375,9 @@
       <pre id="debug-state"></pre>
       <p class="debug-note">
         <kbd>[</kbd> / <kbd>]</kbd> Skip rooms ·
-        <kbd>F2</kbd> Tools<br />Assists mark the run as a test. Hitboxes shown
-        are sprite bounds; actual enemy collision uses the original pixel masks.
+        <kbd>F2</kbd> Tools<br />Assists mark the run as a test. Gold pixels
+        show the miner contact mask; creature rectangles contain the original
+        enemy pixel masks.
       </p>
     </aside>
     <script type="module" src="/src/main.js"></script>
