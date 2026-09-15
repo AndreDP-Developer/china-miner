@@ -483,12 +483,12 @@ export class MineScene {
       if (c === 32 || c >= 147) return;
       if (c >= 120 && c <= 128) {
         if (c === 120) {
-          this.put("ladder", x + 0.12, y, 0.05, 0.11, 1.03, 0.18);
-          this.put("ladder", x + 1.7, y, 0.05, 0.11, 1.03, 0.18);
+          this.put("ladder", x + 0.2, y, 0.05, 0.11, 1.03, 0.18);
+          this.put("ladder", x + 1.8, y, 0.05, 0.11, 1.03, 0.18);
           for (let k = 0; k < 2; k++)
             this.put(
               "ladder",
-              x + 0.9,
+              x + 1,
               y - 0.24 + k * 0.5,
               0.09,
               1.6,
@@ -846,7 +846,11 @@ export class MineScene {
       (arm, i) =>
         (arm.rotation.x = movement ? Math.sin(phase + i * Math.PI) * -0.45 : 0),
     );
-    this.player.rotation.y = 0; // The projected body stays aligned with its contact mask.
+    // Restore the original remake's left/right turn and keep that facing when
+    // stopping. Climbing returns to the centred pose along the ladder.
+    if (e.input & 3) this.player.rotation.y = 0;
+    else if (e.input & 4) this.player.rotation.y = -0.18;
+    else if (e.input & 8) this.player.rotation.y = 0.18;
     this.player.rotation.z = e.dying ? Math.sin(time * 18) * 0.2 : 0;
     this.lamp.position
       .copy(this.player.position)

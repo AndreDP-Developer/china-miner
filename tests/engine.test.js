@@ -158,6 +158,21 @@ function openFloor(hardcore) {
   e.god = true;
   return e;
 }
+test("the entrance ladder can be climbed past its adjacent spikes in both modes", () => {
+  for (const hardcore of [false, true]) {
+    for (const x of [92, 93]) {
+      const e = new MinerEngine(data, levels, { hardcore });
+      e.m[0x352] = x;
+      e.m[0x35c] = 221;
+      // Isolate the real ladder and spike layout from roaming creatures.
+      e.spriteCollision = () => 0;
+      for (let i = 0; i < 20; i++) e.tick(1);
+      assert.equal(e.lives, 5, `mode ${hardcore}, approach ${x}`);
+      assert.equal(e.lastDeath, null);
+      assert.equal(e.m[0x35c], 181);
+    }
+  }
+});
 test("Modern supports Space-only jumping, air reversal and stopping; Hardcore commits its direction", () => {
   const e = openFloor(false);
   const x = e.m[0x352],

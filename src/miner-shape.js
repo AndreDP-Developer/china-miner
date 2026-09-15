@@ -2,7 +2,9 @@
 // The pickaxe and swinging hands are cosmetic, as with most platformer hurtboxes.
 export const MINER = Object.freeze({
   scale: 1.08,
-  anchorX: 12,
+  // A ladder occupies two character cells; the original climb aligns the
+  // sprite origin with their left edge, so its centre is eight pixels in.
+  anchorX: 8,
   feetY: 21,
   torso: { x: 0, y: 1, width: 0.87, height: 0.95 },
   head: { x: 0, y: 1.73, rx: 0.44, ry: 0.44 },
