@@ -1,6 +1,7 @@
 import * as THREE from "./vendor/three.module.js";
 import { RoundedBoxGeometry } from "./vendor/RoundedBoxGeometry.js";
 import { MINER, MINER_CONTACT_PIXELS } from "./miner-shape.js";
+import { createCreature } from "./creature-mesh.js";
 
 const COLORS = [
   0x15272b, 0xffedd5, 0xc07755, 0x71dedb, 0xbe81cf, 0x84b58a, 0x6998b1,
@@ -121,14 +122,12 @@ export class MineScene {
     this.entities.add(this.player);
     this.lamp = new THREE.PointLight(0xffd99b, 16, 8, 1.7);
     this.entities.add(this.lamp);
-    this.voxels = new THREE.InstancedMesh(
-      boxGeometry,
-      material(0xffffff, { roughness: 0.45, metalness: 0.18 }),
-      5000,
-    );
-    this.voxels.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.voxels.frustumCulled = false;
-    this.entities.add(this.voxels);
+    this.creatureCache = new Map();
+    this.creatures = Array.from({ length: 7 }, () => {
+      const group = new THREE.Group();
+      this.entities.add(group);
+      return group;
+    });
     this.items = new THREE.Group();
     this.entities.add(this.items);
     this.itemModels = new Map();
@@ -698,44 +697,23 @@ export class MineScene {
     return g;
   }
   drawEnemies() {
-    const m = this.engine.m,
-      color = new THREE.Color();
-    let count = 0;
+    const m = this.engine.m;
     for (let i = 1; i < 8; i++) {
       const s = this.engine.sprite(i);
-      if (!s.enabled || s.y < -30 || s.x < -30 || s.x > 335) continue;
+      const group = this.creatures[i - 1];
+      group.visible = s.enabled && s.y >= -30 && s.x >= -30 && s.x <= 335;
+      if (!group.visible) continue;
       if (!s.frame && m[0x384 + i]) s.frame = m[0x3a2 + i];
-      for (let y = 0; y < 21; y++)
-        for (let x = 0; x < 24; x += s.multi ? 2 : 1) {
-          const raw = m[s.frame * 64 + y * 3 + (x >> 3)],
-            v = s.multi
-              ? (raw >> (6 - ((x & 7) >> 1) * 2)) & 3
-              : (raw >> (7 - (x & 7))) & 1;
-          if (!v) continue;
-          const col = s.multi
-            ? v === 1
-              ? COLORS[m[0xd025] & 15]
-              : v === 2
-                ? COLORS[s.color]
-                : COLORS[m[0xd026] & 15]
-            : COLORS[s.color];
-          dummy.position.set(
-            (s.x + x + (s.multi ? 1 : 0.5)) / 8,
-            20 - (s.y + y + 0.5) / 8,
-            0.52,
-          );
-          dummy.rotation.set(0, 0, 0);
-          dummy.scale.set(s.multi ? 0.245 : 0.12, 0.12, 0.26 + (y % 3) * 0.012);
-          dummy.updateMatrix();
-          this.voxels.setMatrixAt(count, dummy.matrix);
-          color.setHex(col);
-          this.voxels.setColorAt(count, color);
-          count++;
-        }
+      const key = `${s.frame}:${s.multi}:${s.color}:${m[0xd025]}:${m[0xd026]}`;
+      if (group.userData.frameKey !== key) {
+        if (!this.creatureCache.has(key))
+          this.creatureCache.set(key, createCreature(this.engine, s, COLORS));
+        group.clear();
+        group.add(this.creatureCache.get(key).clone());
+        group.userData.frameKey = key;
+      }
+      group.position.set(s.x / 8, 20 - s.y / 8, 0.4);
     }
-    this.voxels.count = count;
-    this.voxels.instanceMatrix.needsUpdate = true;
-    if (this.voxels.instanceColor) this.voxels.instanceColor.needsUpdate = true;
   }
   drawDebug() {
     this.debugGroup.traverse((o) => {
@@ -829,7 +807,7 @@ export class MineScene {
     }
     this.rebuildTiles();
     this.drawEnemies();
-    const p = e.sprite(0);
+    const p = e.dying && e.lastDeath ? e.lastDeath.player : e.sprite(0);
     this.player.position.set(
       (p.x + MINER.anchorX) / 8,
       20 - (p.y + MINER.feetY) / 8,
@@ -851,7 +829,7 @@ export class MineScene {
     if (e.input & 3) this.player.rotation.y = 0;
     else if (e.input & 4) this.player.rotation.y = -0.18;
     else if (e.input & 8) this.player.rotation.y = 0.18;
-    this.player.rotation.z = e.dying ? Math.sin(time * 18) * 0.2 : 0;
+    this.player.rotation.z = e.dying ? Math.sin(e.deathFrames * 1.7) * 0.22 : 0;
     this.lamp.position
       .copy(this.player.position)
       .add(new THREE.Vector3(0, 1.9, 2));

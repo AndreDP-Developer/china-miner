@@ -42,6 +42,7 @@ export class MinerEngine {
     this.previousJump = false;
     this.lastDeath = null;
     this.deathReason = null;
+    this.deathFrames = 0;
     this.input = 0;
     this.runToBoundary(true);
   }
@@ -155,8 +156,15 @@ export class MinerEngine {
     for (let instructions = 0; instructions < 200000; instructions++) {
       if (c.pc === 0x82c0 && (initial || instructions > 0))
         return c.cycles - start;
-      if (yieldAnimation && instructions > 0 && c.pc === 0x8757)
-        return c.cycles - start;
+      if (yieldAnimation && c.pc === 0x8757) {
+        // Brief local reaction, then use the original life/game-over/room reset.
+        if (this.deathFrames++ < 6) {
+          c.cycles += Math.round(PAL_HZ * 0.075);
+          return c.cycles - start;
+        }
+        c.pc = 0x8763;
+        continue;
+      }
       if (c.pc === 0x8bb5 || c.pc === 0x8197) {
         this.status = "gameover";
         return c.cycles - start;
@@ -179,6 +187,7 @@ export class MinerEngine {
       if (c.pc === 0x8606) this.deathReason = "spikes or laser";
       if (c.pc === 0x8391) this.deathReason = "long fall";
       if (c.pc === 0x8742 && !this.god) {
+        this.deathFrames = 0;
         this.lastDeath = {
           reason: this.deathReason || "hazard",
           player: this.playerContactSprite(),

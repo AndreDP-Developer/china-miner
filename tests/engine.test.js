@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { MinerEngine } from "../src/engine.js";
 import { CPU } from "../src/cpu.js";
 import { loadSettings, saveSettings } from "../src/settings.js";
+import { createCreature, creatureShapes } from "../src/creature-mesh.js";
 
 const data = JSON.parse(
   fs.readFileSync(new URL("../public/data/original.json", import.meta.url)),
@@ -111,6 +112,62 @@ test("fifth-room completion awards an extra life and thirtieth-room completion e
   assert.equal(e.status, "complete");
   assert.equal(e.score, 50);
 });
+test("every room collects all treasures and transitions correctly in both modes", () => {
+  for (const hardcore of [false, true])
+    for (let room = 0; room < 30; room++) {
+      const e = new MinerEngine(data, levels, { hardcore });
+      e.select(room);
+      for (const code of [251, 252, 253, 254]) touchItem(e, code);
+      assert.equal(e.collected, 4);
+      assert.equal(e.score, 200);
+      touchItem(e, 250);
+      assert.equal(e.score, 250);
+      if (room === 29) assert.equal(e.status, "complete");
+      else assert.equal(e.level, room + 1);
+    }
+});
+test("smooth creature outlines preserve holes and generate valid animation geometry in every room", () => {
+  const pixels = new Array(24 * 21).fill(-1);
+  for (let y = 2; y < 8; y++)
+    for (let x = 2; x < 8; x++) pixels[y * 24 + x] = 1;
+  for (let y = 4; y < 6; y++)
+    for (let x = 4; x < 6; x++) pixels[y * 24 + x] = -1;
+  const shapes = creatureShapes(pixels, 1);
+  assert.equal(shapes.length, 1);
+  assert.equal(shapes[0].holes.length, 1);
+  const seen = new Set(),
+    e = fresh();
+  for (let room = 0; room < 30; room++) {
+    e.select(room);
+    e.god = true;
+    for (let tick = 0; tick < 120; tick++) {
+      e.tick(0);
+      for (let i = 1; i < 8; i++) {
+        const s = e.sprite(i);
+        if (!s.enabled || !s.frame) continue;
+        const key = `${s.frame}:${s.multi}:${s.color}:${e.m[0xd025]}:${e.m[0xd026]}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const model = createCreature(e, s, new Array(16).fill(0xffffff));
+        assert.ok(
+          model.children.length > 0,
+          `room ${room + 1}, frame ${s.frame}`,
+        );
+        for (const mesh of model.children) {
+          const p = mesh.geometry.attributes.position.array;
+          assert.ok(p.length > 0 && p.every(Number.isFinite));
+          mesh.geometry.computeBoundingBox();
+          const b = mesh.geometry.boundingBox;
+          assert.ok(b.min.x >= -0.04 && b.max.x <= 3.04);
+          assert.ok(b.min.y >= -2.67 && b.max.y <= 0.04);
+          mesh.geometry.dispose();
+          mesh.material.dispose();
+        }
+      }
+    }
+  }
+  assert.ok(seen.size > 30);
+});
 test("death consumes a life and restores every item and the room geometry", () => {
   const e = fresh();
   touchItem(e, 251);
@@ -124,6 +181,24 @@ test("death consumes a life and restores every item and the room geometry", () =
   e.runToBoundary();
   assert.equal(e.status, "gameover");
   assert.equal(e.lives, 0);
+});
+test("death presentation finishes in six short frames without flying up the screen", () => {
+  for (const hardcore of [true, false]) {
+    const e = new MinerEngine(data, levels, { hardcore });
+    const y = e.m[0x35c];
+    e.cpu.pc = 0x8742;
+    let seconds = 0;
+    for (let i = 0; i < 6; i++) {
+      seconds += e.tick(0);
+      assert.equal(e.lives, 4);
+      assert.equal(e.dying, true);
+      assert.ok(Math.abs(e.m[0x35c] - y) <= 2);
+    }
+    e.tick(0);
+    assert.equal(e.dying, false);
+    assert.equal(e.lives, 4);
+    assert.ok(seconds >= 0.45 && seconds < 0.55);
+  }
 });
 test("sprite collision uses pixel masks, not merely overlapping rectangles", () => {
   const e = fresh();
