@@ -1,5 +1,4 @@
 import { CPU } from "./cpu.js";
-import { minerContains, MINER_CONTACT_PIXELS } from "./miner-shape.js";
 
 export const PAL_HZ = 985248;
 export class MinerEngine {
@@ -113,7 +112,7 @@ export class MinerEngine {
   }
   touchingHazard() {
     const p = this.playerContactSprite();
-    for (const point of MINER_CONTACT_PIXELS) {
+    for (const point of this.contactPixels(p)) {
       const px = p.x + point.x + 0.5,
         py = p.y + point.y + 0.5;
       const tx = Math.floor(px / 8),
@@ -129,6 +128,13 @@ export class MinerEngine {
     }
     return false;
   }
+  contactPixels(p = this.playerContactSprite()) {
+    const points = [];
+    for (let y = 0; y < 21; y++)
+      for (let x = 0; x < 24; x++)
+        if (this.opaque(p, x, y)) points.push({ x, y });
+    return points;
+  }
   spriteCollision() {
     if (this.god) return 0;
     const p = this.playerContactSprite();
@@ -143,7 +149,7 @@ export class MinerEngine {
       for (let y = y0; y < y1; y++)
         for (let x = x0; x < x1; x++)
           if (
-            minerContains(x - p.x + 0.5, y - p.y + 0.5) &&
+            this.opaque(p, x - p.x, y - p.y) &&
             this.opaque(e, x - e.x, y - e.y)
           )
             return 1 | (1 << i);
@@ -158,7 +164,7 @@ export class MinerEngine {
         return c.cycles - start;
       if (yieldAnimation && c.pc === 0x8757) {
         // Brief local reaction, then use the original life/game-over/room reset.
-        if (this.deathFrames++ < 6) {
+        if (this.deathFrames++ < 10) {
           c.cycles += Math.round(PAL_HZ * 0.075);
           return c.cycles - start;
         }
@@ -181,7 +187,8 @@ export class MinerEngine {
         }
         // Original character-cell hazards are larger than the new spike/laser art.
         // Only accept their death branch when the visible shapes actually touch.
-        if (c.pc === 0x8601) this.m[0x33a] = this.touchingHazard() ? 1 : 0;
+        if (c.pc === 0x8601)
+          this.m[0x33a] = this.m[0x33a] && this.touchingHazard() ? 1 : 0;
       }
       if (c.pc === 0x86c4) this.deathReason = "creature";
       if (c.pc === 0x8606) this.deathReason = "spikes or laser";

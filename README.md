@@ -4,7 +4,7 @@
 
 A Three.js fan remake of **China Miner**, programmed and designed by **Ian Gray**, published by **Interceptor Software in 1984** for the Commodore 64.
 
-All thirty original rooms return with layered cavern scenery, a ruined temple, illuminated lanterns, drifting dust, waterfalls, jade crystals, a modelled miner, and smooth rounded creatures. Their original coloured animation regions are joined into curved, bevelled meshes instead of individual pixel blocks. The original game’s movement routines, room data, enemy paths, pickups and hazards drive the new presentation.
+All thirty original rooms return with layered cavern scenery, a ruined temple, illuminated lanterns, drifting dust, waterfalls and jade crystals. The miner, monsters and pickups use the original C64 artwork, colours and animation frames, displayed with crisp scaling on the high-resolution Three.js canvas.
 
 Original music: **Chris Cox**, based on Scott Joplin’s _Maple Leaf Rag_. This remake uses newly synthesized ambience and effects, not a recording of the original soundtrack.
 
@@ -45,7 +45,7 @@ Collect the **pickaxe, candle, lantern and jade vase**, then take the key. Every
 
 ## Settings
 
-Open the gear **Settings** button. **Modern is the default:** Space alone jumps, you can reverse or stop horizontally during a jump, and a brief input buffer catches presses just before landing. Spike and laser contact follows their visible shapes. **Hardcore** preserves the original committed jump direction, directional fire-button controls, fall limit and character-cell hazard rules. Both modes retain all thirty original maps and use corrected creature contact against the miner’s visible body and triangular straw hat. Hands and the pickaxe are cosmetic.
+Open the gear **Settings** button. **Modern is the default:** Space alone jumps, you can reverse or stop horizontally during a jump, and a brief input buffer catches presses just before landing. Spike and laser contact follows their visible shapes. **Hardcore** preserves the original committed jump direction, directional fire-button controls, fall limit and character-cell hazard rules. Both modes retain all thirty original maps and use corrected creature contact against the original opaque sprite pixels at their current logical positions.
 
 Settings are remembered in this browser. Changing mode restarts the current room with five lives and zero score. A reduced-animation option is also available.
 
@@ -85,11 +85,11 @@ chinaMiner.resume();
 
 ## Fidelity and implementation
 
-This is **not a physics approximation made from video**. A small NMOS 6502 interpreter executes the recovered gameplay routines, and Three.js renders their output. No C64 system ROM or full-system emulator is bundled. Character-grid collision, jump phases, ladders, conveyors, collapsing floors, slides, moving platforms, laser phases, scoring and enemy motion remain in those routines. Creature contact uses the original enemy pixel masks against a conservative projection of the new miner’s body and hat, at the current logical position. Modern mode adds the movement and hazard overrides described above.
+This is **not a physics approximation made from video**. A small NMOS 6502 interpreter executes the recovered gameplay routines, and Three.js renders their output. No C64 system ROM or full-system emulator is bundled. Character-grid collision, jump phases, ladders, conveyors, collapsing floors, slides, moving platforms, laser phases, scoring and enemy motion remain in those routines. Creature contact uses the original miner and enemy pixel masks, at the current logical position. Modern mode adds the movement and hazard overrides described above.
 
-The simulation is scheduled against the PAL CPU clock, 985,248 Hz. Original gameplay busy waits retain their calculated instruction-cycle cost without wasting host CPU time. Browser rendering is independent of game updates. In both modes, death uses a short local reaction lasting roughly 0.45 seconds, followed by the original life deduction and room reset, instead of the original upward flight.
+The simulation is scheduled against the PAL CPU clock, 985,248 Hz. Original gameplay busy waits retain their calculated instruction-cycle cost without wasting host CPU time. Browser rendering is independent of game updates. In both modes, death uses a short local reaction lasting roughly 0.75 seconds, followed by the original life deduction and room reset, instead of the original upward flight.
 
-**Limits:** This does not simulate VIC-II raster timing, CPU contention or SID / KERNAL interrupts. Sprite collision is sampled at the original collision-check point rather than latched over a full hardware raster. The miner contact mask is shared with its model dimensions; cosmetic limb animations and backgrounds do not affect contact. Therefore frame-for-frame timing equivalence to an entire C64 longplay is **not certified**. The original layouts and gameplay routines are preserved, but this is not a cycle-exact C64 emulator.
+**Limits:** This does not simulate VIC-II raster timing, CPU contention or SID / KERNAL interrupts. Sprite collision is sampled at the original collision-check point rather than latched over a full hardware raster. The miner contact mask is the displayed original sprite frame; backgrounds do not affect contact. Therefore frame-for-frame timing equivalence to an entire C64 longplay is **not certified**. The original layouts and gameplay routines are preserved, but this is not a cycle-exact C64 emulator.
 
 Tests cover:
 
@@ -100,7 +100,7 @@ Tests cover:
 - Death resets, game over, the jump arc, visible creature contact and stale-coordinate regression.
 - Modern air steering, jump buffering, held-button behavior and persistent settings.
 - The entrance ladder beside spikes, approached from both accepted positions in both modes.
-- Treasure collection and transitions in every room in both modes; smooth monster geometry across room animation frames; the short death presentation.
+- Treasure collection and transitions in every room in both modes; original sprite pixels and all five composite pickup images; the short death presentation.
 
 All 30 rooms were also loaded and single-stepped through the browser's developer controls without console errors. These checks exercise engine and rendering behavior; they are not an unassisted completion of every route.
 

@@ -5,7 +5,11 @@ import crypto from "node:crypto";
 import { MinerEngine } from "../src/engine.js";
 import { CPU } from "../src/cpu.js";
 import { loadSettings, saveSettings } from "../src/settings.js";
-import { createCreature, creatureShapes } from "../src/creature-mesh.js";
+import {
+  spritePixels,
+  pickupPixels,
+  originalArtMesh,
+} from "../src/original-art.js";
 
 const data = JSON.parse(
   fs.readFileSync(new URL("../public/data/original.json", import.meta.url)),
@@ -126,47 +130,30 @@ test("every room collects all treasures and transitions correctly in both modes"
       else assert.equal(e.level, room + 1);
     }
 });
-test("smooth creature outlines preserve holes and generate valid animation geometry in every room", () => {
-  const pixels = new Array(24 * 21).fill(-1);
-  for (let y = 2; y < 8; y++)
-    for (let x = 2; x < 8; x++) pixels[y * 24 + x] = 1;
-  for (let y = 4; y < 6; y++)
-    for (let x = 4; x < 6; x++) pixels[y * 24 + x] = -1;
-  const shapes = creatureShapes(pixels, 1);
-  assert.equal(shapes.length, 1);
-  assert.equal(shapes[0].holes.length, 1);
-  const seen = new Set(),
-    e = fresh();
-  for (let room = 0; room < 30; room++) {
-    e.select(room);
-    e.god = true;
-    for (let tick = 0; tick < 120; tick++) {
-      e.tick(0);
-      for (let i = 1; i < 8; i++) {
-        const s = e.sprite(i);
-        if (!s.enabled || !s.frame) continue;
-        const key = `${s.frame}:${s.multi}:${s.color}:${e.m[0xd025]}:${e.m[0xd026]}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const model = createCreature(e, s, new Array(16).fill(0xffffff));
-        assert.ok(
-          model.children.length > 0,
-          `room ${room + 1}, frame ${s.frame}`,
-        );
-        for (const mesh of model.children) {
-          const p = mesh.geometry.attributes.position.array;
-          assert.ok(p.length > 0 && p.every(Number.isFinite));
-          mesh.geometry.computeBoundingBox();
-          const b = mesh.geometry.boundingBox;
-          assert.ok(b.min.x >= -0.04 && b.max.x <= 3.04);
-          assert.ok(b.min.y >= -2.67 && b.max.y <= 0.04);
-          mesh.geometry.dispose();
-          mesh.material.dispose();
-        }
-      }
+test("original artwork preserves opaque sprite pixels and all five composite pickups", () => {
+  const e = fresh();
+  for (const multi of [false, true])
+    for (let frame = 128; frame < 144; frame++) {
+      const sprite = { ...e.sprite(0), frame, multi };
+      const pixels = spritePixels(e, sprite);
+      for (let y = 0; y < 21; y++)
+        for (let x = 0; x < 24; x++)
+          assert.equal(pixels[y * 24 + x] >= 0, e.opaque(sprite, x, y));
     }
+  const art = [];
+  for (let code = 250; code < 255; code++) {
+    const pixels = pickupPixels(e, code);
+    assert.equal(pixels.length, 256);
+    assert.ok(pixels.some((v) => v >= 0));
+    art.push(JSON.stringify(pixels));
+    const mesh = originalArtMesh(pixels, 16, 16);
+    assert.equal(mesh.geometry.parameters.width, 2);
+    assert.equal(mesh.material.map.image.data.length, 1024);
+    mesh.geometry.dispose();
+    mesh.material.map.dispose();
+    mesh.material.dispose();
   }
-  assert.ok(seen.size > 30);
+  assert.equal(new Set(art).size, 5);
 });
 test("death consumes a life and restores every item and the room geometry", () => {
   const e = fresh();
@@ -182,13 +169,13 @@ test("death consumes a life and restores every item and the room geometry", () =
   assert.equal(e.status, "gameover");
   assert.equal(e.lives, 0);
 });
-test("death presentation finishes in six short frames without flying up the screen", () => {
+test("death presentation finishes in ten short frames without flying up the screen", () => {
   for (const hardcore of [true, false]) {
     const e = new MinerEngine(data, levels, { hardcore });
     const y = e.m[0x35c];
     e.cpu.pc = 0x8742;
     let seconds = 0;
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 10; i++) {
       seconds += e.tick(0);
       assert.equal(e.lives, 4);
       assert.equal(e.dying, true);
@@ -197,7 +184,7 @@ test("death presentation finishes in six short frames without flying up the scre
     e.tick(0);
     assert.equal(e.dying, false);
     assert.equal(e.lives, 4);
-    assert.ok(seconds >= 0.45 && seconds < 0.55);
+    assert.ok(seconds >= 0.75 && seconds < 0.85);
   }
 });
 test("sprite collision uses pixel masks, not merely overlapping rectangles", () => {
@@ -218,6 +205,7 @@ test("sprite collision uses pixel masks, not merely overlapping rectangles", () 
   e.m[0x2440] = 0x40;
   assert.equal(e.spriteCollision(), 0);
   e.m[0x2440] = 0;
+  e.m[0x2422] = 0x10;
   e.m[0x2462] = 0x10; // Enemy pixel at (11, 11), inside the displayed torso.
   assert.equal(e.spriteCollision(), 3);
   e.m[0x352] = 60; // Logical movement precedes the VIC register update.
